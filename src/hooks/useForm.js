@@ -17,10 +17,10 @@ export const useForm = (initialForm = {}) => {
   };
 
   const onDateChange = (date, dateString, name) => {
-    const formattedDate = date ? moment.tz(date, 'America/Santiago').format('YYYY-MM-DD') : '';
+
     setFormState({
       ...formState,
-      [name]: formattedDate,
+      [name]: date,
     });
   };
 

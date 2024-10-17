@@ -23,8 +23,19 @@ export default defineConfig({
         target: process.env.VITE_VICI,
         changeOrigin: true,
         secure: false,
-        rewrite: path => path.replace(/^\/agc/, '') // Ajuste de la ruta
+        rewrite: path => path.replace(/^\/agc/, ''), // Ajuste de la ruta
       },
     },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Dividiendo las dependencias grandes en chunks separados
+          'vendor': ['react', 'react-dom'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000, // Opcional: ajusta el límite de advertencia de tamaño
   },
 });

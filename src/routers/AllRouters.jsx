@@ -7,8 +7,10 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 export const AllRouters = () => {
     const { status, checkAuthToken } = useAuthStore();
 
+
     useEffect(() => {
         checkAuthToken();
+        
     }, []);
     
     if (status === 'checking') {

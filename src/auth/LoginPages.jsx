@@ -21,7 +21,6 @@ export const LoginPages = () => {
 
     const loginSubmit = (event) => {
         event.preventDefault();
-        console.log(formState.loginrut);
         startLogin({ rut: formState.loginrut, company: selectedCompany });
     };
 
@@ -78,7 +77,6 @@ export const LoginPages = () => {
                     </Row>
                     <Row gutter={[16, 16]}>
                         <Col xs={24} sm={12} md={8}><Checkbox name="svia" checked={selectedCompany === 'svia'} onChange={handleCheckboxChange}>SVIA</Checkbox></Col>
-                        <Col xs={24} sm={12} md={8}><Checkbox name="avn" checked={selectedCompany === 'avn'} onChange={handleCheckboxChange}>AVN</Checkbox></Col>
                     </Row>
                 </Form.Item>
 

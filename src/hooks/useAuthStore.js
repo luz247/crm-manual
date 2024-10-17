@@ -20,16 +20,14 @@ export const useAuthStore = () => {
 
     try {
       const data = await (await crmApi.get(`/user/${rut}/`)).data;
-console.log(data[0].rut === rut)
       if (data[0].rut === rut) {
-        dispatch(onLogin({ name: data[0].nombre, rut: data[0].rut }));
-        dispatch(onSetAllInfo({company}));
+        
+        dispatch(onLogin({ name: data[0].nombre, rut: data[0].rut, rol:data[0].idroles }));
+        dispatch(onSetAllInfo({ company }));
         dispatch(onChooseWallet("Escoja Cartera"));
-      }else{
+      } else {
         throw new Error("Credenciales incorrectas");
       }
-
-     
     } catch (error) {
       console.error("Error durante el inicio de sesión:", error.message);
       dispatch(onLogout("Credenciales incorrectas")); // Notificar que el login falló

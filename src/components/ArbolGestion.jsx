@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Select, Card } from "antd";
 import "../assets/css/index.css";
 import { useCrmStore } from "../hooks/useCrmStore";
@@ -6,13 +6,15 @@ import { useCrmStore } from "../hooks/useCrmStore";
 const { Option } = Select;
 
 export const ArbolGestion = ({ setSelectedStatus, resetFlag, setResetFlag }) => {
-  const { clasifications, setChangeTree, setSelectActive } = useCrmStore();
+  const { clasifications, setChangeTree } = useCrmStore();
   const [managementOptions, setManagementOptions] = useState(new Map());
   const [selectedManagement, setSelectedManagement] = useState('');
   const [secondSelectOptions, setSecondSelectOptions] = useState([]);
   const [selectedStatus, setSelectedStatusLocal] = useState('');
+  const isInitialized = useRef(false); // Ref para controlar si ya se ha inicializado
 
-  useEffect(() => {
+
+  if (clasifications.length > 0 && !isInitialized.current) {
     const optionsMap = new Map();
     clasifications.forEach(item => {
       if (item.glosa_gestion && item.glosa_estado) {
@@ -24,14 +26,15 @@ export const ArbolGestion = ({ setSelectedStatus, resetFlag, setResetFlag }) => 
         if (!optionsMap.has(item.glosa_gestion)) {
           optionsMap.set(item.glosa_gestion, []);
         }
-        if (!optionsMap.get(item.glosa_gestion).some(e => e.estado === item.glosa_estado)) {
-          optionsMap.get(item.glosa_gestion).push(valueToStore);
-        }
+
+        optionsMap.get(item.glosa_gestion).push(valueToStore);
       }
     });
 
+    console.log(optionsMap, 'son las tipificaciones');
     setManagementOptions(optionsMap);
-  }, [clasifications]);
+    isInitialized.current = true; // Marca que ya se inicializó
+  }
 
   useEffect(() => {
     if (resetFlag) {
@@ -39,7 +42,7 @@ export const ArbolGestion = ({ setSelectedStatus, resetFlag, setResetFlag }) => 
       setSecondSelectOptions([]);
       setSelectedStatusLocal('');
       setSelectedStatus('');
-      setResetFlag(false); // Reset the flag
+      setResetFlag(false); 
     }
   }, [resetFlag, setSelectedStatus, setResetFlag]);
 
@@ -57,6 +60,21 @@ export const ArbolGestion = ({ setSelectedStatus, resetFlag, setResetFlag }) => 
       setChangeTree(value); // Llama a la función para cambiar el estado del árbol con el idRespuestaStatus seleccionado
     }
   };
+
+  const opcionesPrioritarias = ['NO CONTESTA', 'BUZON DE VOZ', 'NO EXISTE', 'CONTINGENCIA','FONO OCUPADO'];
+
+
+const opcionesRestantes = secondSelectOptions
+  .filter(option => !opcionesPrioritarias.includes(option.estado))
+  .sort((a, b) => a.estado.localeCompare(b.estado));
+
+
+const opcionesPrimero = secondSelectOptions
+  .filter(option => opcionesPrioritarias.includes(option.estado))
+  .sort((a, b) => opcionesPrioritarias.indexOf(a.estado) - opcionesPrioritarias.indexOf(b.estado));
+
+
+const todasLasOpciones = [...opcionesPrimero, ...opcionesRestantes];
 
   return (
     <>
@@ -79,17 +97,18 @@ export const ArbolGestion = ({ setSelectedStatus, resetFlag, setResetFlag }) => 
           <Select
             style={{ width: "100%", marginTop: 20 }}
             placeholder="Seleccionar Estado"
-            value={selectedStatus} // Asigna el valor del estado seleccionado
-            onChange={handleSecondSelectChange} // Añade el manejador aquí
+            value={selectedStatus}
+            onChange={handleSecondSelectChange}
           >
             <Option value="" disabled>Seleccione...</Option>
-            {secondSelectOptions.map(option => (
+            {todasLasOpciones.map(option => (
               <Option key={option.idRespuestaStatus} value={option.idRespuestaStatus}>
                 {option.estado}
               </Option>
             ))}
           </Select>
         )}
+
       </Card>
     </>
   );

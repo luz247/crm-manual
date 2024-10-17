@@ -14,9 +14,19 @@ import {
   onGetDescuento,
   onGetGestiones,
   onChangeTree,
-  onSelect
+  onSelect,
+  onInputRut,
+  clearPhono,
+  clearMail,
+  clearAllData,
+  onGetDiary,
+  onSetPatentesAvo,
+  onGetDescuentoAvo,
+  onSetAllPhonos,
+  onGetCallAgain,
+  onInputRutBack,
+  buttonBlock,
 } from "../Store/crmSlice";
-
 
 export const useCrmStore = () => {
   const {
@@ -34,10 +44,17 @@ export const useCrmStore = () => {
     Gestiones,
     active,
     tree,
-    changeTreeManagement
-
+    changeTreeManagement,
+    valueRut,
+    diary,
+    patentesAvo,
+    descuentoAvo,
+    numeroCartera,
+    telefonos,
+    allCallAgain,
+    blockButton,
   } = useSelector((state) => state.crm);
-const {user} = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
 
   const startLoadingClasifications = async () => {
@@ -58,11 +75,10 @@ const {user} = useSelector((state) => state.auth);
       dispatch(onSetActiveData(data));
 
       if (path === "acsa") {
-        console.log(path,'boletas')
         const boletas = await (
           await crmApi.get(`/boleta-${path}/${rut}/`)
         ).data;
-
+        console.log(boletas, "boletas-acsa");
         dispatch(onGetTicketAcsa(boletas));
 
         const ppu = await (await crmApi.get(`/ppu-${path}/${rut}/`)).data;
@@ -74,71 +90,101 @@ const {user} = useSelector((state) => state.auth);
         ).data;
 
         dispatch(onGetDescuento(descuento));
-      } else {
+      } else if (path === "avo") {
+        const patenteAvo = await (
+          await crmApi.get(`/patente-${path}/${rut}/`)
+        ).data;
+        console.log(patenteAvo, "en el useCrmAvo");
+
+        dispatch(onSetPatentesAvo(patenteAvo));
+
+        const descuentoAvo = await (
+          await crmApi.get(`/descuento-${path}/${rut}/`)
+        ).data;
+        dispatch(onGetDescuentoAvo(descuentoAvo));
+      }
+
+      const gestiones = await (
+        await crmApi.get(`/listar-gestiones/${path}/${rut}/`)
+      ).data;
+      dispatch(onGetGestiones(gestiones));
+
+      if (path != "acsa") {
         const ticket = await (
           await crmApi.get(`/cartera-${path}/${rut}/`)
         ).data;
         dispatch(onSetTickets(ticket));
       }
-      const gestiones = await (
-        await crmApi.get(`/listar-gestiones-${path}/${rut}/`)
-      ).data;
-      console.log(gestiones)
-      dispatch(onGetGestiones(gestiones));
     } catch (error) {
       console.error("Error fetching data:", error);
     }
   };
 
-  const insertDataRegister = async ( formState ) => {
+  const insertDataRegister = async (formState) => {
+    console.log(formState, "llegaaa");
     const combinedData = {
       ...formState,
-      ruteje:user.rut, 
-      rut: activeData[0].rut || activeData[0].RUT
-  };
-    console.log(combinedData)
-   const data = await (
+      ruteje: user.rut,
+      rut: activeData[0].rut || activeData[0].RUT,
+      monto: activeData[0].monto || activeData[0].MONTO,
+    };
+    const datacallAgain = {
+      Ruteje: user.rut,
+      Rut: activeData[0].rut || activeData[0].RUT,
+      monto: activeData[0].monto || activeData[0].MONTO,
+      Fecha_Gestion: combinedData.fecha,
+      Fecha_Agenda: combinedData.callagain,
+      Prefix: combinedData.prefix,
+      telefono: combinedData.telefono,
+      glosa: combinedData.glosa,
+    };
+
+    if (formState.idrespuesta == 5) {
+      const data = await (
+        await crmApi.post(`/insert-callAgain/`, datacallAgain)
+      ).data;
+
+      console.log(data, "es 5 cincooo");
+    }
+    const data = await (
       await crmApi.post(
         `/insertar-registro-contacto-${allInfo.company}/`,
         combinedData
       )
     ).data;
-  
-console.log(data,'regreso')
-    
+
+    console.log("insertado", data);
   };
 
   const setNewEmail = async (dataEmail) => {
     try {
-
-      console.log(dataEmail,'es mail')
-      const newEmail  ={
+      console.log(dataEmail, "es mail");
+      const newEmail = {
         ...dataEmail,
         rut: activeData[0].rut || activeData[0].RUT,
-        ruteje:user.rut
-      }
+        ruteje: user.rut,
+      };
       const email = await (
         await crmApi.post(`/insertar-NewEmail-${allInfo.company}/`, newEmail)
       ).data;
-      console.log(email,allInfo.company)
+      console.log(email, allInfo.company);
       dispatch(onSetAddEmail(dataEmail["email"]));
-
     } catch (error) {
       console.log(error);
     }
   };
 
-  const setNewPhono = async (dataPhono ) => {
+  const setNewPhono = async (dataPhono) => {
     try {
-      const newphono  ={
+      const newphono = {
         ...dataPhono,
         rut: activeData[0].rut || activeData[0].RUT,
-        ruteje:user.rut
-      }
+        ruteje: user.rut,
+      };
       const phono = await (
         await crmApi.post(`/insertar-NewPhono-${allInfo.company}/`, newphono)
       ).data;
-      console.log(phono,allInfo.company)
+      console.log(phono, allInfo.company);
       dispatch(onSetAddPhone(dataPhono["telefono"]));
     } catch (error) {
       console.log(error);
@@ -161,17 +207,60 @@ console.log(data,'regreso')
     }
   };
 
-  const bacgroundWallet = (path) => {
+  const BlockButtons = (btn) => {
+    try {
+      dispatch(buttonBlock(btn));
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
-    console.log('souel backgro',path)
+  const showGestiones = async ({ path, rut }) => {
+    const gestion = await (
+      await crmApi.get(`/listar-gestiones/${path}/${rut}/`)
+    ).data;
+    dispatch(onGetGestiones(gestion));
+  };
+
+  const showAllCallAgain = async ({ path }) => {
+    const callAgain = await (
+      await crmApi.get(`/getCallAgainAll/${path}/`)
+    ).data;
+    dispatch(onGetCallAgain(callAgain));
+  };
+
+  const showAllPhono = async (rut) => {
+    console.log({ rut, numeroCartera }, "soy los telefonos");
+    console.log(allInfo.company);
+    const allPhono = await (
+      await crmApi.get(
+        `/Allcombinedphones/?idclient=${numeroCartera}&rut=${rut}&database_name=${allInfo.company}`
+      )
+    ).data;
+    console.log(
+      allPhono,
+      "soy las telefonossssssssssssssssssssssssssssssssssss"
+    );
+    dispatch(onSetAllPhonos(allPhono));
+  };
+
+  const showDiary = async ({ path, rut }) => {
+    console.log({ numeroCartera }, "soy el wallet avo");
+    const diary = await (
+      await crmApi.get(`/listar-diary/${path}/${rut}/${numeroCartera}/`)
+    ).data;
+    console.log(diary, "soy las diat de recargado", path);
+    dispatch(onGetDiary(diary));
+  };
+
+  const bacgroundWallet = (path) => {
+    console.log("souel backgro", path);
     try {
       dispatch(onPaintWallet(path));
     } catch (error) {
       console.log(error);
     }
   };
-
-
 
   const setChangeTree = (change) => {
     dispatch(onChangeTree(change));
@@ -181,7 +270,24 @@ console.log(data,'regreso')
     dispatch(onSelect());
   };
 
- 
+  const validarRut = (value) => {
+    dispatch(onInputRut(value));
+  };
+  const validarRutback = () => {
+    console.log(valueRut);
+    dispatch(onInputRutBack(valueRut));
+  };
+  const clearPhonos = () => {
+    dispatch(clearMail());
+  };
+
+  const clearMails = () => {
+    dispatch(clearPhono());
+  };
+
+  const ClearAllDatas = () => {
+    dispatch(clearAllData());
+  };
 
   return {
     clasifications,
@@ -198,6 +304,13 @@ console.log(data,'regreso')
     Gestiones,
     active,
     tree,
+    valueRut,
+    diary,
+    patentesAvo,
+    descuentoAvo,
+    telefonos,
+    allCallAgain,
+    blockButton,
 
     setGetData,
     setNewEmail,
@@ -209,7 +322,16 @@ console.log(data,'regreso')
     insertDataRegister,
     setChangeTree,
     setSelectActive,
-    changeTreeManagement
-
+    changeTreeManagement,
+    validarRut,
+    clearPhonos,
+    clearMails,
+    showGestiones,
+    ClearAllDatas,
+    showDiary,
+    showAllPhono,
+    showAllCallAgain,
+    validarRutback,
+    BlockButtons,
   };
 };

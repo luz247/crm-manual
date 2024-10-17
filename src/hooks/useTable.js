@@ -2,7 +2,7 @@ const columns = {
   global: [
     {
       title: "Número de Documento",
-      dataIndex: "numerodocumento",
+      dataIndex: "numerocomprobantefiscal",
       key: "global-numerodocumento",
     },
     {
@@ -172,14 +172,19 @@ const columns = {
   ],
   gestiones: [
     {
-      title: "Rut Ejecutivo",
+      title: "Nombre Ejecutivo",
       dataIndex: "ruteje",
       key: "ruteje",
     },
     {
       title: "Tipo",
-      dataIndex: "Tipo",
+      dataIndex: "tipo",
       key: "Tipo",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "telefono",
+      key: "Telefono",
     },
     {
       title: "Fecha Compromiso",
@@ -197,9 +202,9 @@ const columns = {
       key: "glosa",
     },
     {
-      title: "GLOSA_ESTADO",
-      dataIndex: "GLOSA_ESTADO",
-      key: "GLOSA_ESTADO",
+      title: "Respuesta",
+      dataIndex: "respuesta",
+      key: "respuesta",
     },
     
   ],

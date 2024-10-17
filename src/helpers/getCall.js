@@ -4,8 +4,8 @@ export const cupCall = async ({ user }) => {
   //const url = '/agc/api.php'; // Ajuste de la URL base
   const params = {
     source: 'CRM_Manual',
-    user: 'KonectadoSuper',
-    pass: 'YRCQ74yt7HovBtwhoi0D',
+    user: 'apiuser',
+    pass: 'SR27DKVP0SipPKOFvn2T',
     agent_user: user,
     function: 'external_hangup',
     value: '1'
@@ -27,8 +27,8 @@ export const dispoCall = async ({ user, status }) => {
   //const url = '/agc/api.php'; // Ajuste de la URL base
   const params = {
     source: 'CRM_Manual',
-    user: 'KonectadoSuper',
-    pass: 'YRCQ74yt7HovBtwhoi0D',
+    user: 'apiuser',
+    pass: 'SR27DKVP0SipPKOFvn2T',
     agent_user: user,
     function: 'external_status',
     value: status
@@ -48,8 +48,8 @@ export const dispoCall = async ({ user, status }) => {
 export const makeCall = async ({ user, phono }) => {
   const params = {
     source: 'CRM',
-    user: 'KonectadoSuper',
-    pass: 'YRCQ74yt7HovBtwhoi0D',
+    user: 'apiuser',
+    pass: 'SR27DKVP0SipPKOFvn2T',
     agent_user: user,
     function: 'external_dial',
     value: phono,
@@ -76,8 +76,8 @@ export const sendNotification = async ({ user, notificationText }) => {
   
   const params = {
     source: 'CRM_Manual',
-    user: 'KonectadoSuper',
-    pass: 'YRCQ74yt7HovBtwhoi0D',
+    user: 'apiuser',
+    pass: 'SR27DKVP0SipPKOFvn2T',
     agent_user: user,
     function: 'send_notification',
     recipient: user,

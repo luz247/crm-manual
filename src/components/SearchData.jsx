@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Button, Form, Input, Row, Col, Collapse, Card, Modal } from "antd";
 import { useForm } from "../hooks/useForm";
 import { useCrmStore } from "../hooks/useCrmStore";
-import { collectPhoneNumbers } from "../helpers/validators";
+import { collectPhoneNumbers, getChileTime, collectEmails, determinarTipoRUT, phoneValidationSchema } from "../helpers/validators";
 import { PhoneOutlined, PlusOutlined, MailOutlined } from "@ant-design/icons";
 import { useModalWithInput } from "../hooks/useModals";
 import { useLocation } from "react-router-dom";
@@ -10,6 +10,7 @@ import { formatCurrency } from "../helpers/getInteger";
 import "../assets/css/index.css"; // Importa tu archivo CSS
 import { Formik, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
+import Swal from 'sweetalert2';
 
 const data = { rut: "" };
 const sendData = {
@@ -53,17 +54,13 @@ const emailValidationSchema = Yup.object().shape({
     .required("El correo electrónico es obligatorio"),
 });
 
-const phoneValidationSchema = Yup.object().shape({
-  telefono: Yup.string()
-    .matches(/^[0-9]{9}$/, "Teléfono inválido, debe tener 9 dígitos")
-    .required("El teléfono es obligatorio"),
-});
+
 
 export const SearchData = () => {
   const location = useLocation();
   const [, cartera] = location.pathname.split("/");
   const { rut, onInputChange } = useForm(data);
-
+  const [valueRutBack, setValueRut] = useState(''); // Controlar el valor del input
   const {
     setGetData,
     activeData,
@@ -74,17 +71,55 @@ export const SearchData = () => {
     newPhono = [],
     descuento = [],
     setColor,
-    allInfo
+    allInfo,
+    validarRut,
+    clearMails,
+    clearPhonos,
+    patentesAvo = [],
+    descuentoAvo = [],
+    showAllPhono,
+    telefonos,
+    valueRut,
+    Gestiones,
+    showGestiones,
+    BlockButtons
   } = useCrmStore();
   const [datas, setdatas] = useState(sendData);
+  const [X, setX] = useState()
+  const [buttonSearch, setButtonSearch] = useState(false);
 
-  const getData = () => {
-    setGetData({ path: allInfo.company, rut });
+  const getData = async () => {
+    BlockButtons(false)
+    if (valueRutBack == '') {
+      Swal.fire('Ingrese un Rut')
+    } else {
+      setGetData({ path: allInfo.company, rut: valueRutBack });
+      await showGestiones({
+        path: allInfo.company,
+        rut: valueRutBack,
+      });
+      if (cartera === 'acsa') {
+        const x = determinarTipoRUT(valueRutBack)
+        setX(x)
+      }
+      await showAllPhono(valueRutBack)
+    }
+    clearMails();
+    clearPhonos();
+
   };
+  /*
+    useEffect(() => {
+      validarRut(rut.trim() !== '');
+    }, [rut, validarRut]);*/
 
   const initialData =
     activeData && activeData.length > 0 ? activeData[0] : datas;
   const uniquePhones = collectPhoneNumbers(initialData);
+  const uniqueEmails = collectEmails(initialData);
+
+  const discountAvo =
+    descuentoAvo && descuentoAvo.length > 0 ? descuentoAvo[0] : [];
 
   const {
     isVisible: isPhoneModalVisible,
@@ -98,24 +133,40 @@ export const SearchData = () => {
     handleCancel: handleEmailCancel,
   } = useModalWithInput(initialValue);
 
-  const handlePhoneOk = ({ telefono }) => {
-    console.log(telefono, 'soy values phpone')
-    const valu = {
-      ...initialValue,
-      telefono
-    }
-    setNewPhono(valu);
-    handlePhoneCancel();
-  };
 
-  const handleEmailOk = ({ email }) => {
-    console.log(email, 'soy values mail ')
-    const valu = {
-      ...initialValue,
-      email
+  const handlePhoneOk = ({ telefono }) => {
+
+    if (!activeData || activeData.length === 0) {
+      Swal.fire("Poner Rut valido para agregar telefono");
+    } else {
+      const fechaLocalISO = getChileTime();
+      console.log(telefono, 'soy values phpone')
+      const valu = {
+        ...initialValue,
+        telefono,
+        fecha: fechaLocalISO
+      }
+      showAllPhono(rut)
+      setNewPhono(valu);
+      handlePhoneCancel();
     }
-    setNewEmail(valu);
-    handleEmailCancel();
+
+  };
+  const handleEmailOk = ({ email }) => {
+
+    if (!activeData || activeData.length === 0) {
+      Swal.fire("Tienes Que Buscar Data con Rut valido");
+    } else {
+      const fechaLocalISO = getChileTime();
+      const valu = {
+        ...initialValue,
+        email,
+        fecha: fechaLocalISO
+      }
+      console.log(valu, 'mail enviados')
+      setNewEmail(valu);
+      handleEmailCancel();
+    }
   };
 
   const llamar = (e) => {
@@ -123,14 +174,73 @@ export const SearchData = () => {
     console.log('estoy llamando');
   };
 
-  const callbase = (e, phone) => {
+  const emailbase = (e, email) => {
     e.preventDefault();
-    console.log(e, phone);
+    console.log(e, email);
   }
 
-  console.log(descuento, 'soy descuento')
+  const handleRutChange = (e) => {
+    onInputChange(e);
+    setValueRut(e.target.value);
+    validarRut(e.target.value.trim() !== '');
+
+
+    console.log(e.target.value.trim().length)
+
+    if (e.target.value.trim().length <= 10) {
+      BlockButtons(false)
+      setButtonSearch(false)
+    } else {
+      setButtonSearch(true)
+    }
+
+  };
+
+  useEffect(() => {
+    if (valueRut && activeData != null && activeData.length > 0) {
+      setValueRut(activeData[0].RUT || activeData[0].rut || activeData[0].Rut);
+    }
+
+  }, [])
+
+  /*
+  useEffect(() => {
+    const verificarGestiones = () => {
+      if (Gestiones && Gestiones.length > 0) {
+        // Obtener la fecha de hoy
+        const hoy = new Date();
+
+        // Crear una copia del array antes de ordenarlo
+        const gestionesOrdenadas = [...Gestiones].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+        // Obtener la fecha de la gestión más reciente
+        const ultimaGestion = gestionesOrdenadas[0]; // La más reciente
+        const fechaGestion = new Date(ultimaGestion.fecha);
+
+        // Calcular la diferencia en milisegundos
+        const diferenciaTiempo = hoy - fechaGestion;
+
+        // Convertir la diferencia a días
+        const diferenciaDias = diferenciaTiempo / (1000 * 60 * 60 * 24);
+
+        // Si la diferencia es menor o igual a 2 días, mostrar la alerta
+        if (diferenciaDias <= 2) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'No Gestionar',
+            text: `El Rut se gestionó el ${ultimaGestion.fecha}, no puede gestionarse por Ley, favor revisar gestiones.`,
+            confirmButtonText: 'Aceptar'
+          });
+        }
+      }
+    };
+
+    verificarGestiones();
+  }, [Gestiones]);
+*/
 
   return (
+
     <Card
       title="Informacion Deudor"
       bordered={false}
@@ -157,8 +267,10 @@ export const SearchData = () => {
           <>
             <Input
               style={{ flex: 1, marginRight: "10px" }}
-              onChange={onInputChange}
+              onChange={handleRutChange}
               name="rut"
+              className="deudor-info"
+              value={valueRutBack}
             />
             <Button
               style={{
@@ -166,6 +278,8 @@ export const SearchData = () => {
                 color: "#FFFFFF",
               }}
               onClick={getData}
+              className="deudor-info"
+              disabled={buttonSearch}
             >
               Search
             </Button>
@@ -212,12 +326,33 @@ export const SearchData = () => {
             marginRight: "10px",
           }}
         >
+          Region:
+        </span>
+        <span className="deudor-info">
+          {" "}
+          {initialData.Region || initialData.region}
+
+        </span>
+      </Row>
+      <Row
+        style={{
+          display: "flex",
+          alignItems: "center",
+          marginBottom: "10px",
+        }}
+      >
+        <span
+          className="deudor-info"
+          style={{
+            fontWeight: "bold",
+            marginRight: "10px",
+          }}
+        >
           Dirección:
         </span>
         <span className="deudor-info">
           {" "}
-          {initialData.DETALLE_DOMICILIO ||
-            initialData.direccion_contractual}{" "}
+          {initialData.direccion || initialData.ComplementoDireccion || initialData.direccion_contractual}{" "}
         </span>
       </Row>
       <Row
@@ -241,6 +376,7 @@ export const SearchData = () => {
           {initialData.COMUNA || initialData.comuna}{" "}
         </span>
       </Row>
+
       <Row
         style={{
           display: "flex",
@@ -249,35 +385,48 @@ export const SearchData = () => {
           justifyContent: "space-between",
         }}
       >
-        <div>
-          <span
-            className="deudor-info"
-            style={{
-              fontWeight: "bold",
-              marginRight: "10px",
-            }}
-          >
-            Email:
-          </span>
-          <span className="deudor-info">
-            {" "}
-            {initialData.EMAIL || initialData.email1}{" "}
-          </span>
-          {newEmail.length > 0
-            ? newEmail.map((email, index) => (
-              <span
-                key={`email-${index}`}
+        <div
+          className="deudor-info"
+          style={{
+            fontWeight: "bold",
+            marginRight: "10px",
+          }}
+        >
+          Email:
+        </div>
+        <div style={{ flex: '1', display: 'flex', flexWrap: 'wrap' }}>
+          {Array.from(uniqueEmails).map((mail, index) => (
+            <div
+              key={`email-${index}`}
+              className="deudor-info"
+              style={{
+                alignItems: "center",
+                marginRight: "10px",
+              }}
+            >
+              <MailOutlined onClick={(e) => emailbase(e, mail)} style={{ marginRight: "4px", color: setColor, cursor: 'pointer' }} />
+              {mail}
+            </div>
+          ))}
+          {newEmail && newEmail.length > 0
+            && newEmail.map((email, index) => (
+              <div
+                key={`new-email-${index}`}
                 className="deudor-info"
                 style={{ marginRight: "10px" }}
+
               >
+                <MailOutlined
+                  style={{ marginRight: "4px", color: setColor }}
+                />
                 {email}
-              </span>
-            ))
-            : ""}
+              </div>
+            ))}
         </div>
         <Button
           type="link"
-          className="deudor-info-botton"
+
+          className="deudor-info"
           onClick={showEmailModal}
           style={{
             background: setColor,
@@ -319,45 +468,26 @@ export const SearchData = () => {
         </Modal>
       </Row>
       <Row
-        style={{
-          display: "flex",
-          alignItems: "center",
-          marginBottom: "10px",
-          justifyContent: "space-between",
-        }}
+        style={{ display: 'flex', justifyContent: 'space-between' }}
       >
-        <div>
-          <span
-            className="deudor-info"
-            style={{
-              fontWeight: "bold",
-              marginRight: "10px",
-            }}
-          >
-            Telefonos:
-          </span>
-          {Array.from(uniquePhones).map((phone, index) => (
-            <span
-              key={`phone-${index}`}
-              className="deudor-info"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                marginRight: "10px",
-              }}
-            >
-              <PhoneOutlined onClick={(e) => callbase(e, phone)} style={{ marginRight: "4px", color: setColor, cursor: 'pointer' }} />
-              {phone}
-            </span>
-          ))}
-          {newPhono &&
-            newPhono.length > 0 &&
-            newPhono.map((phone, index) => (
-              <span
-                key={`new-phone-${index}`}
-                className="deudor-info"
+        <div
+          className="deudor-info"
+          style={{
+            fontWeight: "bold",
+            marginRight: "10px",
+
+          }}
+        >
+          Telefonos:
+        </div>
+        <div className="deudor-info" style={{ flex: '1', display: 'flex', flexWrap: 'wrap' }}>
+          {telefonos &&
+            telefonos.length > 0 &&
+            telefonos.map(({ telefono }) => (
+              <div
+                key={`new-phone-${telefono}`}
                 style={{
-                  display: "inline-flex",
+
                   alignItems: "center",
                   marginRight: "10px",
                 }}
@@ -367,15 +497,15 @@ export const SearchData = () => {
                   onClick={llamar}
                   style={{ marginRight: "4px", color: setColor }}
                 />
-                {phone}
-              </span>
+                {telefono}
+              </div>
             ))}
         </div>
 
         <Button
           type="link"
           onClick={showPhoneModal}
-          className="deudor-info-botton"
+          className="deudor-info"
           style={{
             background: setColor,
             color: "white",
@@ -415,16 +545,39 @@ export const SearchData = () => {
           </Formik>
         </Modal>
       </Row>
-      <Row>
-        <Col>
-          <div></div>
-        </Col>
-      </Row>
+      {allInfo.company === 'avo' && (
+        <Row
+          style={{
+            display: "flex",
+            alignItems: "center",
+            marginBottom: "10px",
+          }}
+        >
+          <span
+            className="deudor-info"
+            style={{
+              fontWeight: "bold",
+              marginRight: "10px",
+              fontSize:'18px'
+            }}
+          >
+            Repactacion:
+          </span>
+          <span className="deudor-info" style={{fontWeight:'bold', fontSize:'20px'}}>
+            {initialData.Repactacion}
+          </span>
+        </Row>
+      )}
+
+
+
+
       <Row style={{ marginTop: "10px", position: "relative" }}>
         <Col span={24} xs={24} sm={24} md={24} lg={24} xl={24}>
           <Collapse
-            style={{ width: "100%" }}
-            className="custom-collapse"
+            style={{ width: "100%", background: '#fff' }}
+
+            className="deudor-info"
             accordion
             items={[
               {
@@ -432,8 +585,48 @@ export const SearchData = () => {
                 label: (
                   <div
                     style={{ display: "flex", justifyContent: "space-between" }}
+                    className="more-info-acsa"
                   >
                     <div>Deuda</div>
+                    {discountAvo.MontoReal && (
+                      <div
+                        style={{
+                          background: setColor,
+                          color: "#fff",
+                          padding: "5px 10px",
+                        }}
+                        className="deudor-info"
+                      >
+                        Monto:
+                        {formatCurrency(discountAvo.MontoReal)}{" "}
+                      </div>
+                    )}
+                    {discountAvo.descuento && (
+                      <div
+                        style={{
+                          background: setColor,
+                          color: "#fff",
+                          padding: "5px 10px",
+                        }}
+                        className="deudor-info"
+                      >
+                        Descuento:
+                        {formatCurrency(discountAvo.descuento)}{" "}
+                      </div>
+                    )}
+                    {discountAvo.allPaid && (
+                      <div
+                        style={{
+                          background: setColor,
+                          color: "#fff",
+                          padding: "5px 10px",
+                        }}
+                        className="deudor-info"
+                      >
+                        Total Pagar:
+                        {formatCurrency(discountAvo.allPaid)}{" "}
+                      </div>
+                    )}
                     {initialData.monto && (
                       <div
                         style={{
@@ -500,19 +693,33 @@ export const SearchData = () => {
                         {initialData.tramo}
                       </div>
                     )}
+                    {initialData.cesion && (
+                      <div
+                        style={{
+                          background: setColor,
+                          color: "#fff",
+                          padding: "5px 10px",
+
+                        }}
+                        className="deudor-info"
+                      >
+                        Cesion:
+                        {initialData.cesion}
+                      </div>
+                    )}
                   </div>
                 ),
                 children: (
                   <div style={{ textAlign: 'start', display: 'flex', justifyContent: 'space-between' }}>
                     <div>
-                      <span style={{ marginBottom: '5px' }}>
+                      <span className="deudor-info" style={{ marginBottom: '5px' }}>
                         {formatCurrency(
                           initialData.MONTO ||
                           initialData.DEUDA ||
                           initialData.monto
                         )}{" "}
                       </span>
-                      <div>
+                      <div className="deudor-info" >
                         {initialData.tipo_cobranza}
                       </div>
                     </div>
@@ -554,6 +761,146 @@ export const SearchData = () => {
           />
         </Col>
       </Row>
+      {
+        X && X.trim && X.trim() !== "" ? (
+          <Row style={{ marginTop: "10px", position: "relative" }}>
+            <Col span={24}>
+              <Collapse
+                style={{ width: "100%", background: '#fff' }}
+                className="deudor-info"
+                accordion
+                items={[
+                  {
+                    key: "1",
+                    label: (
+                      <div style={{ display: 'flex' }}>
+                        <div>Tipo de Persona: </div>
+                        <div style={{
+                          background: 'rgb(100, 156, 152)',
+                          color: "#fff",
+                          marginLeft: '10px',
+                          padding: '0 5px'
+                        }}>
+                          {X === 'Juridico' ? 'Jurídica' : 'Natural'}
+                        </div>
+                      </div>
+                    ),
+                    children: (
+                      <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
+                        {
+                          X === 'Juridico' ? (
+                            <table style={{ minWidth: '800px', borderCollapse: "collapse", marginTop: "10px" }}>
+                              <thead>
+                                <tr style={{ backgroundColor: '#f2a68d' }}>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Tramo de Deuda</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Plazo convenio o Cheques</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Pie mínimo</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Deuda mínima exigida</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Deuda mínima por cuota</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Cheque al día mínimo</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Deuda mínima exigida</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Deuda mínima por cuota</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Observaciones</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>Hasta $10.000.000 &gt;$10.000.000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>Hasta 24 cuotas <br /> Hasta 36 cuotas</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>17%</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>$25,000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>$6,000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>17%</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>$30,000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>$30,000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>Las cuotas se aplican según el total con descuento</td>
+                                </tr>
+
+                              </tbody>
+                            </table>
+                          ) : (
+                            <table style={{ minWidth: '800px', borderCollapse: "collapse", marginTop: "10px" }}>
+                              <thead>
+                                <tr style={{ backgroundColor: '#f2a68d' }}>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Tramo de Deuda</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Plazo convenio o Cheques</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Pie mínimo</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Deuda mínima exigida</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Deuda mínima por cuota</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Cheque al día mínimo</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Deuda mínima exigida</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Deuda mínima por cuota</th>
+                                  <th style={{ border: "1px solid #ddd", padding: "8px" }}>Observaciones</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}> Hasta $1.000.000
+                                    <br />
+                                    &gt; $1.000.000 y &lt;=$3.000.000
+                                    <br />
+                                    &gt; $3.000.000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>Hasta 12 cuotas <br /> Hasta 24 cuotas<br /> Hasta 36 cuotas</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>17%</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>$25,000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>$6,000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>17%</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>$30,000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>$30,000</td>
+                                  <td rowSpan="2" style={{ border: "1px solid #ddd", padding: "8px" }}>en caso de tener deuda TEM Y R78, las cuotas se aplican según el total con descuento excluyendo TEM y R78</td>
+                                </tr>
+
+                              </tbody>
+                            </table>
+                          )
+                        }
+                      </div>
+                    )
+                  }
+                ]}
+              />
+            </Col>
+          </Row>
+        ) : null
+
+      }
+
+      {patentesAvo.length > 0 && (
+        <Row style={{ marginTop: "10px", position: "relative" }}>
+          <Col span={24} xs={24} sm={24} md={24} lg={24} xl={24}>
+            <Collapse
+              style={{ width: "100%", background: '#fff' }}
+              className="deudor-info"
+              accordion
+              items={[
+                {
+                  key: "1",
+                  label: (
+                    <div
+                      style={{ display: "flex", justifyContent: "space-between" }}
+                      className="more-info-acsa"
+                    >
+                      <div>Patentes</div>
+                    </div>
+                  ),
+                  children: (
+                    <div style={{ textAlign: 'start', display: 'flex', justifyContent: 'space-between' }}>
+                      <div>
+                        <ul>
+                          {patentesAvo.map((patente, index) => (
+                            <li key={`patente-${index}`}>{patente.Patentes}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </Col>
+        </Row>
+      )}
+
     </Card>
   );
 };
